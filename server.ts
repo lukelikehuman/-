@@ -155,11 +155,21 @@ app.post('/api/ocr-receipt', async (req, res) => {
   }
 });
 
+// Webhook activity tracker for easy troubleshooting
+let lastWebhookActivity = {
+  lastReceivedAt: null as string | null,
+  eventCount: 0,
+  lastEventType: null as string | null,
+  lastText: null as string | null,
+  lastReplyStatus: null as string | null,
+};
+
 // Helper to reply to LINE message
 async function replyLineMessage(replyToken: string, messages: any[]) {
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!lineToken) {
     console.warn('LINE_CHANNEL_ACCESS_TOKEN is not configured; skipped replying to LINE.');
+    lastWebhookActivity.lastReplyStatus = '未配置 LINE_CHANNEL_ACCESS_TOKEN';
     return;
   }
 
@@ -179,16 +189,24 @@ async function replyLineMessage(replyToken: string, messages: any[]) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Failed to reply to LINE:', response.status, errText);
+      lastWebhookActivity.lastReplyStatus = `LINE API 回覆失敗 (${response.status}): ${errText}`;
+    } else {
+      console.log('Successfully replied to LINE user via replyToken');
+      lastWebhookActivity.lastReplyStatus = '成功回傳至 LINE 聊天室';
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error sending reply to LINE API:', err);
+    lastWebhookActivity.lastReplyStatus = `網路連線異常: ${err.message}`;
   }
 }
 
 // LINE Messaging API Webhook Handler
 app.post('/api/line-webhook', async (req, res) => {
   const events = req.body?.events || [];
-  console.log(`Received ${events.length} LINE webhook event(s)`);
+  console.log(`[LINE Webhook] Received ${events.length} event(s) at ${new Date().toISOString()}`);
+
+  lastWebhookActivity.lastReceivedAt = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  lastWebhookActivity.eventCount = events.length;
 
   // Respond to LINE immediately with 200 OK so the webhook doesn't timeout
   res.status(200).json({ status: 'ok', received: events.length });
@@ -196,11 +214,16 @@ app.post('/api/line-webhook', async (req, res) => {
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
   for (const event of events) {
+    lastWebhookActivity.lastEventType = event.type;
+    console.log('[LINE Webhook Event]:', JSON.stringify(event));
+
     if (event.type === 'message') {
       const { replyToken, message } = event;
 
       // Handle Image Message (Photo of invoice or receipt)
       if (message.type === 'image') {
+        lastWebhookActivity.lastEventType = 'image (發票收據照片)';
+        lastWebhookActivity.lastText = `[圖片 message.id=${message.id}]`;
         if (!lineToken) {
           console.log('Received image from LINE, but LINE_CHANNEL_ACCESS_TOKEN is not set.');
           continue;
@@ -255,6 +278,9 @@ app.post('/api/line-webhook', async (req, res) => {
 
       // Handle Text Message
       if (message.type === 'text') {
+        lastWebhookActivity.lastEventType = 'text (文字訊息)';
+        lastWebhookActivity.lastText = message.text;
+        console.log(`[LINE Text Received]: "${message.text}" from user`);
         if (lineToken) {
           await replyLineMessage(replyToken, [
             {
@@ -266,6 +292,17 @@ app.post('/api/line-webhook', async (req, res) => {
       }
     }
   }
+});
+
+// Endpoint to view webhook diagnostic activity
+app.get('/api/line-webhook/activity', (req, res) => {
+  res.json({
+    activity: lastWebhookActivity,
+    botInfo: {
+      name: '懂吃財務秘書',
+      basicId: '@222pwytv',
+    },
+  });
 });
 
 // System Health & Config status

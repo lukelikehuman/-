@@ -69,6 +69,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     loading: true,
   });
 
+  const [botActivity, setBotActivity] = useState<{
+    lastReceivedAt: string | null;
+    eventCount: number;
+    lastEventType: string | null;
+    lastText: string | null;
+    lastReplyStatus: string | null;
+    botInfo?: { name: string; basicId: string };
+  } | null>(null);
+
   const fetchEnvStatus = async () => {
     setEnvStatus((prev) => ({ ...prev, loading: true }));
     try {
@@ -86,6 +95,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       }
     } catch {
       setEnvStatus((prev) => ({ ...prev, loading: false }));
+    }
+
+    try {
+      const actRes = await fetch('/api/line-webhook/activity');
+      if (actRes.ok) {
+        const actData = await actRes.json();
+        setBotActivity({
+          ...actData.activity,
+          botInfo: actData.botInfo,
+        });
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -1059,6 +1081,73 @@ LINE_CHANNEL_SECRET="您的_Secret"
                   <span>{webhookTestStatus.message}</span>
                 </div>
               )}
+
+              {/* Bot Connection & Real-time Diagnostic Box */}
+              <div className="bg-white p-3.5 rounded-lg border border-emerald-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-bold text-xs text-slate-900">
+                      已綁定官方帳號：{botActivity?.botInfo?.name || '懂吃財務秘書'} ({botActivity?.botInfo?.basicId || '@222pwytv'})
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
+                    Token 驗證通過
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-[11px] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">最後一次收到 LINE 訊息：</span>
+                    <span className="font-mono font-semibold text-slate-800">
+                      {botActivity?.lastReceivedAt ? `本日 ${botActivity.lastReceivedAt}` : '尚未收到 LINE 事件 (等待初次觸發)'}
+                    </span>
+                  </div>
+                  {botActivity?.lastText && (
+                    <div className="flex items-start justify-between gap-2 pt-0.5 border-t border-slate-200/60">
+                      <span className="text-slate-500">最近收到內容：</span>
+                      <span className="font-mono text-emerald-700 font-medium truncate max-w-xs">{botActivity.lastText}</span>
+                    </div>
+                  )}
+                  {botActivity?.lastReplyStatus && (
+                    <div className="flex items-center justify-between pt-0.5 border-t border-slate-200/60">
+                      <span className="text-slate-500">回傳狀態：</span>
+                      <span className="font-semibold text-emerald-700">{botActivity.lastReplyStatus}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Why did it not reply guide */}
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-lg text-amber-950 space-y-2">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                    <BadgeAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>若手機傳訊給機器人「沒有收到回覆」，請立即檢查以下 3 個開關：</span>
+                  </div>
+                  <div className="text-[11px] space-y-1.5 pl-5 text-amber-900/90 leading-relaxed">
+                    <div>
+                      <strong className="text-amber-950">1. 最常見（80%原因）：前往 LINE 官方帳號管理後台開啟 Webhook</strong>
+                      <p className="text-amber-800/90">
+                        開啟 <a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-emerald-700">manager.line.biz</a> ➔ 點入「懂吃財務秘書」➔ 右上角「設定」➔ 左側「回應設定」：
+                        <br />• <strong>回應模式</strong>：請選「<strong>聊天機器人</strong>」（若選「聊天」，LINE 伺服器會阻擋轉發給 Webhook）
+                        <br />• <strong>Webhook</strong>：請勾選「<strong>啟用</strong>」
+                        <br />• <strong>自動回應訊息</strong>：建議「<strong>停用</strong>」
+                      </p>
+                    </div>
+                    <div>
+                      <strong className="text-amber-950">2. LINE Developers 的「Use Webhook」開關必須打開</strong>
+                      <p className="text-amber-800/90">
+                        在 LINE Developers Console ➔ Messaging API 標籤頁 ➔ Webhook settings 中，確認 <strong>Use Webhook</strong> 開關是切換為 <strong>開啟 (ON)</strong>。
+                      </p>
+                    </div>
+                    <div>
+                      <strong className="text-amber-950">3. 確認手機聊天室的機器人 ID</strong>
+                      <p className="text-amber-800/90">
+                        請確認您手機加入對話的是 <strong>懂吃財務秘書</strong>（ID: <code>@222pwytv</code>）。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 5-Step Detailed Visual Setup */}
