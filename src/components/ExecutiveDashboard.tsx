@@ -115,12 +115,23 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     fetchEnvStatus();
   }, [activeTab]);
 
+  const [copiedPublicWebhook, setCopiedPublicWebhook] = useState(false);
+
   const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/line-webhook` : '/api/line-webhook';
+  const publicWebhookUrl = typeof window !== 'undefined'
+    ? `${window.location.origin.replace('ais-dev-', 'ais-pre-')}/api/line-webhook`
+    : 'https://ais-pre-vj7midritvgvsp4lm5x6oz-591358928533.asia-east1.run.app/api/line-webhook';
 
   const handleCopyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
     setCopiedWebhook(true);
     setTimeout(() => setCopiedWebhook(false), 2500);
+  };
+
+  const handleCopyPublicWebhook = () => {
+    navigator.clipboard.writeText(publicWebhookUrl);
+    setCopiedPublicWebhook(true);
+    setTimeout(() => setCopiedPublicWebhook(false), 2500);
   };
 
   const handleTestWebhook = async () => {
@@ -1042,45 +1053,59 @@ LINE_CHANNEL_SECRET="您的_Secret"
                     disabled={webhookTesting}
                     className="px-3 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-xs font-medium transition-colors shadow-2xs"
                   >
-                    {webhookTesting ? '測試中...' : '測試伺服器回應'}
+                    {webhookTesting ? '測試中...' : '測試內部伺服器'}
                   </button>
                   <button
-                    onClick={handleCopyWebhook}
+                    onClick={handleCopyPublicWebhook}
                     className="px-3 py-1 bg-[#06C755] hover:bg-[#05b34c] text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
                   >
-                    {copiedWebhook ? (
+                    {copiedPublicWebhook ? (
                       <>
-                        <Check className="w-3.5 h-3.5" /> 已複製網址
+                        <Check className="w-3.5 h-3.5" /> 已複製公開網址
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5" /> 複製 Webhook URL
+                        <Copy className="w-3.5 h-3.5" /> 複製公開 Webhook URL (推薦)
                       </>
                     )}
                   </button>
                 </div>
               </div>
 
-              <div className="bg-slate-950 text-emerald-400 p-3 rounded-lg font-mono text-xs break-all select-all border border-slate-800">
-                {webhookUrl}
+              {/* Public URL for LINE Developers */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-emerald-950 flex items-center gap-1">
+                    🌐 公開 Webhook 網址（貼至 LINE Developers，免除 302 錯誤）：
+                  </span>
+                  <span className="text-emerald-700 font-mono text-[10px]">推薦填入此網址</span>
+                </div>
+                <div className="bg-slate-950 text-emerald-400 p-2.5 rounded-lg font-mono text-xs break-all select-all border border-slate-800 flex items-center justify-between">
+                  <span>{publicWebhookUrl}</span>
+                </div>
               </div>
 
-              {webhookTestStatus && (
-                <div
-                  className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 ${
-                    webhookTestStatus.success
-                      ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-200'
-                      : 'bg-rose-100 text-rose-900 border border-rose-200'
-                  }`}
-                >
-                  {webhookTestStatus.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  )}
-                  <span>{webhookTestStatus.message}</span>
+              {/* 302 Error Explainer Banner */}
+              <div className="bg-amber-50 border border-amber-300/80 rounded-lg p-3 text-amber-950 space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                  <BadgeAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>為什麼 LINE 會出現「HTTP 狀態碼不是 200（302 Found）」？</span>
                 </div>
-              )}
+                <p className="text-[11px] leading-relaxed text-amber-900/90 pl-5">
+                  <strong>原因：</strong>目前系統處於開發者私有環境（<code>ais-dev-...</code>），Google 伺服器會強制要求登入 Cookie，導致 LINE 外部伺服器連線時被自動導向（回傳 302 重導向）。
+                </p>
+                <div className="pl-5 pt-1 text-[11px] text-amber-950 space-y-1">
+                  <strong>解法兩步驟：</strong>
+                  <ol className="list-decimal list-inside space-y-0.5 text-amber-900">
+                    <li>
+                      點擊 AI Studio 頂部右上角的 <strong>「Deploy」（部署）</strong> 或 <strong>「Share」（分享）</strong> 發布應用。
+                    </li>
+                    <li>
+                      將 LINE Developers 的 Webhook URL 改為上方的 <strong>公開網址（<code>ais-pre-...</code>）</strong>，按 Verify 即可順利取得 <strong>200 OK</strong>！
+                    </li>
+                  </ol>
+                </div>
+              </div>
 
               {/* Bot Connection & Real-time Diagnostic Box */}
               <div className="bg-white p-3.5 rounded-lg border border-emerald-200 space-y-2.5">
