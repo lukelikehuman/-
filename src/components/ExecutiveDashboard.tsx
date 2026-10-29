@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ExpenseItem,
   ExpenseCategory,
@@ -27,6 +27,11 @@ import {
   FileText,
   BadgeAlert,
   ArrowUpRight,
+  Key,
+  Settings,
+  ShieldCheck,
+  FileCode,
+  RefreshCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -52,6 +57,41 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [webhookTesting, setWebhookTesting] = useState(false);
   const [webhookTestStatus, setWebhookTestStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [envStatus, setEnvStatus] = useState<{
+    hasLineToken: boolean;
+    hasLineSecret: boolean;
+    hasGeminiKey: boolean;
+    loading: boolean;
+  }>({
+    hasLineToken: false,
+    hasLineSecret: false,
+    hasGeminiKey: false,
+    loading: true,
+  });
+
+  const fetchEnvStatus = async () => {
+    setEnvStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setEnvStatus({
+          hasLineToken: !!data.hasLineToken,
+          hasLineSecret: !!data.hasLineSecret,
+          hasGeminiKey: !!data.hasGeminiKey,
+          loading: false,
+        });
+      } else {
+        setEnvStatus((prev) => ({ ...prev, loading: false }));
+      }
+    } catch {
+      setEnvStatus((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    fetchEnvStatus();
+  }, [activeTab]);
 
   const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/line-webhook` : '/api/line-webhook';
 
@@ -862,6 +902,107 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               <p className="text-slate-500 mt-1">
                 除了左側的手機模擬器，您只需將本系統的 Webhook 填入 LINE Developers，門市同仁即可用真實手機加入 LINE 官方帳號拍照記帳！
               </p>
+            </div>
+
+            {/* Environment Variables Location & Status Card */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-emerald-50/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">系統環境變數設定位置 (Environment Variables)</h4>
+                    <p className="text-slate-500 text-[11px]">查看與配置系統所需的 LINE Messaging API 金鑰</p>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchEnvStatus}
+                  className="self-start sm:self-auto px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 shadow-2xs"
+                >
+                  <RefreshCw className={`w-3 h-3 ${envStatus.loading ? 'animate-spin text-emerald-600' : ''}`} />
+                  重新整理狀態
+                </button>
+              </div>
+
+              {/* Status pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-mono">GEMINI_API_KEY</div>
+                    <div className="text-xs font-semibold text-slate-800">Gemini OCR 引擎</div>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    envStatus.hasGeminiKey
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                  }`}>
+                    {envStatus.hasGeminiKey ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <XCircle className="w-3 h-3 text-rose-600" />}
+                    {envStatus.hasGeminiKey ? '已就緒' : '未偵測'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-mono">LINE_CHANNEL_ACCESS_TOKEN</div>
+                    <div className="text-xs font-semibold text-slate-800">LINE 長期權杖</div>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    envStatus.hasLineToken
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                  }`}>
+                    {envStatus.hasLineToken ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
+                    {envStatus.hasLineToken ? '已配置啟用' : '尚未填寫'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-mono">LINE_CHANNEL_SECRET</div>
+                    <div className="text-xs font-semibold text-slate-800">Channel 密鑰</div>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    envStatus.hasLineSecret
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}>
+                    {envStatus.hasLineSecret ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Clock className="w-3 h-3 text-slate-400" />}
+                    {envStatus.hasLineSecret ? '已配置' : '選填'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Where to configure explanation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs">
+                    <FileCode className="w-4 h-4 text-emerald-600" />
+                    <span>方式 1：編輯專案根目錄的 <code className="bg-slate-100 px-1 py-0.5 rounded text-emerald-700 font-mono">/.env</code> 檔案（最快）</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    我們已在您的專案檔案清單最外層建立了 <code className="font-mono bg-slate-100 px-1 rounded text-slate-800">.env</code> 檔案，點開該檔案，將您的 Token 貼在引號內儲存即可立即生效：
+                  </p>
+                  <pre className="bg-slate-900 text-slate-200 p-2 rounded text-[10px] font-mono select-all">
+LINE_CHANNEL_ACCESS_TOKEN="您的_Token"
+LINE_CHANNEL_SECRET="您的_Secret"
+                  </pre>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs">
+                    <Settings className="w-4 h-4 text-emerald-600" />
+                    <span>方式 2：使用 AI Studio 介面 Secrets 面板</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    在 Google AI Studio 介面右上角點擊 <strong>⚙️ Settings（設定）</strong> 或 <strong>Secrets</strong> 面板，點擊「Add Secret」並填入：
+                  </p>
+                  <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5 pl-1">
+                    <li>名稱：<code className="font-mono bg-slate-100 text-slate-800 px-1 rounded">LINE_CHANNEL_ACCESS_TOKEN</code></li>
+                    <li>數值：貼入 LINE Developers 發行的長期權杖</li>
+                  </ul>
+                </div>
+              </div>
             </div>
 
             {/* Live Webhook Card */}

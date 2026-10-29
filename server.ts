@@ -273,6 +273,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     hasGeminiKey: !!process.env.GEMINI_API_KEY,
+    hasLineToken: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
+    hasLineSecret: !!process.env.LINE_CHANNEL_SECRET,
     appUrl: process.env.APP_URL || 'http://localhost:3000',
     timestamp: new Date().toISOString(),
   });
