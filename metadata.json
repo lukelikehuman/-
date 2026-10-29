@@ -1,0 +1,8 @@
+{
+  "name": "健康餐 LINE 記帳與主管核銷系統",
+  "description": "健康餐飲門市專用的 LINE 記帳機器人與主管審核管理後台，支援拍照發票 AI 辨識、自動分類統計、Google Sheets 即時同步與單據核銷。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
